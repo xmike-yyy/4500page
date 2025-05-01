@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DesignFTW Messenger</title>
+  <script type="importmap">
+  {
+    "imports": {
+      "vue": "https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.esm-browser.js",
+      "@graffiti-garden/implementation-local": "https://cdn.jsdelivr.net/npm/@graffiti-garden/implementation-local@0.6.4/dist/browser/index.js",
+      "@graffiti-garden/wrapper-vue": "https://cdn.jsdelivr.net/npm/@graffiti-garden/wrapper-vue@0.7.2/dist/browser/plugin.mjs"
+    }
+  }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.js"></script>
+  <script type="module" src="index.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <div class="header">
+      <h1>DesignFTW Messenger</h1>
+      <button v-if="!$graffitiSession.value" @click="$graffiti.login()">Log In</button>
+      <button v-else @click="$graffiti.logout($graffitiSession.value)">Log Out</button>
+    </div>
+    <div class="app-container" v-if="$graffitiSession.value">
+      <aside class="sidebar">
+        <div class="tab-buttons">
+          <button :class="{active: view==='inbox'}" @click="view='inbox'">Inbox</button>
+          <button :class="{active: view==='tagged'}" @click="view='tagged'">Tagged</button>
+        </div>
+        <div class="tab-content">
+          <div v-if="view==='inbox'" class="inbox-list">
+            <ul>
+              <li v-for="conv in conversations"
+                  :key="conv.id"
+                  :class="{selected: conv.id===channels[0]}"
+                  @click="selectConversation(conv.id, conv.name)">
+                {{ conv.name }}
+              </li>
+            </ul>
+          </div>
+          <div v-else class="tagged-list">
+            <graffiti-discover
+              v-slot="{ objects: tagObjects, isInitialPolling }"
+              :channels="['designftw']"
+              :schema="{
+                properties: {
+                  value: {
+                    required: ['activity','target','tag'],
+                    properties: {
+                      activity: { type: 'string', const: 'Tag' },
+                      target: { type: 'string' },
+                      tag: { type: 'string' }
+                    }
+                  }
+                }
+              }"
+            >
+              <div v-if="isInitialPolling" class="loading">Loading tags...</div>
+              <div v-else>
+                <ul>
+                  <li v-for="tag in [...new Set(tagObjects.map(obj => obj.value.tag))]"
+                      :key="tag"
+                      :class="['tag-item', {selected: selectedTag === tag}]"
+                      @click="selectTag(tag, tagObjects)">
+                    <span class="tag-name">{{ tag }}</span>
+                    <span class="tag-count">{{ tagObjects.filter(obj => obj.value.tag === tag).length }}</span>
+                  </li>
+                </ul>
+                <div class="storage-notice" v-if="Object.keys(sessionTags).length > 0">
+                  Tags are stored locally to remember conversation names
+                </div>
+              </div>
+            </graffiti-discover>
+          </div>
+        </div>
+      </aside>
+
+      <main class="chat-area">
+        <div v-if="view==='inbox'">
+          <div v-if="!channels.length" class="no-chat">
+            Select a chat from Inbox
+          </div>
+          <div v-else class="chat-view">
+            <header class="chat-header"><h2>{{ currentGroupName }}</h2></header>
+            <graffiti-discover
+              v-slot="{ objects: messageObjects, isInitialPolling }"
+              :channels="channels"
+              :schema="{
+                properties: {
+                  value: {
+                    required: ['content','published'],
+                    properties: {
+                      content: { type: 'string' },
+                      published: { type: 'number' }
+                    }
+                  }
+                }
+              }"
+            >
+              <div class="messages">
+                <div v-if="isInitialPolling" class="loading">Loading messages...</div>
+                <div v-else>
+                  <div
+                    v-for="msg in getAllMessages(channels[0], messageObjects)"
+                    :key="msg.url || msg.id"
+                    :class="['message', isOutgoingMessage(msg) ? 'outgoing' : 'incoming']"
+                  >
+                    <div class="bubble">{{ getMessageContent(msg) }}</div>
+                    <div class="timestamp">{{ formatTimestamp(msg.value?.published) }}</div>
+                    <button class="tag-btn" @click="promptTag(msg)" title="Tag this message">🔖</button>
+                  </div>
+                </div>
+              </div>
+            </graffiti-discover>
+            <form class="input-row" @submit.prevent="sendMessage($graffitiSession.value)">
+              <input type="text"
+                     v-model="myMessage"
+                     placeholder="Type a message…"
+                     ref="messageInput"
+                     autocomplete="off" />
+              <button type="submit" :disabled="sending">
+                <span v-if="sending">...</span>
+                <span v-else>Send</span>
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div v-else>
+          <div v-if="!selectedTag" class="no-chat">Select a tag to view messages</div>
+          <div v-else class="chat-view">
+            <header class="chat-header">
+              <h2>Tagged: <span class="tag-label">{{ selectedTag }}</span></h2>
+            </header>
+            <div class="messages">
+              <div v-if="!taggedMessages.length" class="no-chat">
+                No messages with this tag
+              </div>
+              <template v-else>
+                <div v-for="(messages, conversationName) in groupedTaggedMessages" :key="conversationName">
+                  <h3 class="conversation-header">{{ conversationName }}</h3>
+                  <div 
+                    v-for="msg in messages" 
+                    :key="msg.url" 
+                    class="message tagged">
+                    <div class="bubble">{{ msg.value.content }}</div>
+                    <div class="timestamp">
+                      {{ new Date(msg.value.published).toLocaleString() }}
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
