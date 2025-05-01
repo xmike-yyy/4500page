@@ -15,33 +15,64 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.js"></script>
   <script type="module" src="index.js"></script>
+  <script type="module" src="profile.js"></script>
+  <script type="module" src="profilebutton.js"></script>
+  <script type="module" src="message.js"></script>
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="profile.css" />
 </head>
 <body>
   <div id="app">
     <div class="header">
       <h1>DesignFTW Messenger</h1>
-      <button v-if="!$graffitiSession.value" @click="$graffiti.login()">Log In</button>
-      <button v-else @click="$graffiti.logout($graffitiSession.value)">Log Out</button>
+      <div class="header-actions">
+        <profile-button
+          v-if="$graffitiSession.value"
+          :actor="$graffitiSession.value.actor"
+          :session="$graffitiSession.value"
+          :show-name="true"
+          @open-profile="openProfileModal"
+        ></profile-button>
+        <button v-if="!$graffitiSession.value" @click="$graffiti.login()">Log In</button>
+        <button v-else @click="$graffiti.logout($graffitiSession.value)">Log Out</button>
+      </div>
     </div>
+    
     <div class="app-container" v-if="$graffitiSession.value">
-      <aside class="sidebar">
+      <aside class="sidebar" :class="{ open: sidebarOpen }">
         <div class="tab-buttons">
           <button :class="{active: view==='inbox'}" @click="view='inbox'">Inbox</button>
           <button :class="{active: view==='tagged'}" @click="view='tagged'">Tagged</button>
         </div>
+        
         <div class="tab-content">
           <div v-if="view==='inbox'" class="inbox-list">
+            <div class="search-bar">
+              <input type="text" v-model="searchQuery" placeholder="Search conversations..." />
+            </div>
             <ul>
-              <li v-for="conv in conversations"
+              <li v-for="conv in filteredConversations"
                   :key="conv.id"
                   :class="{selected: conv.id===channels[0]}"
                   @click="selectConversation(conv.id, conv.name)">
-                {{ conv.name }}
+                <profile-button
+                  :actor="conv.id"
+                  :session="$graffitiSession.value"
+                  :size="'small'"
+                  :show-name="true"
+                ></profile-button>
               </li>
             </ul>
+            <button class="new-chat-btn" @click="showNewConversationPrompt">
+              New Conversation
+            </button>
           </div>
+          
           <div v-else class="tagged-list">
+            <div class="search-bar">
+              <input type="text" v-model="tagSearchQuery" placeholder="Search tags..." />
+            </div>
+            
             <graffiti-discover
               v-slot="{ objects: tagObjects, isInitialPolling }"
               :channels="['designftw']"
@@ -61,7 +92,7 @@
               <div v-if="isInitialPolling" class="loading">Loading tags...</div>
               <div v-else>
                 <ul>
-                  <li v-for="tag in [...new Set(tagObjects.map(obj => obj.value.tag))]"
+                  <li v-for="tag in filteredTags(tagObjects)"
                       :key="tag"
                       :class="['tag-item', {selected: selectedTag === tag}]"
                       @click="selectTag(tag, tagObjects)">
@@ -81,10 +112,23 @@
       <main class="chat-area">
         <div v-if="view==='inbox'">
           <div v-if="!channels.length" class="no-chat">
-            Select a chat from Inbox
+            <div class="empty-state">
+              <h3>Welcome to DesignFTW Messenger!</h3>
+              <p>Select a conversation or start a new one</p>
+              <button class="secondary-btn" @click="showNewConversationPrompt">New Conversation</button>
+            </div>
           </div>
           <div v-else class="chat-view">
-            <header class="chat-header"><h2>{{ currentGroupName }}</h2></header>
+            <header class="chat-header">
+              <button class="mobile-menu-btn" @click="toggleSidebar">≡</button>
+              <profile-button
+                :actor="channels[0]"
+                :session="$graffitiSession.value"
+                :show-name="true"
+                @open-profile="viewContactProfile"
+              ></profile-button>
+            </header>
+            
             <graffiti-discover
               v-slot="{ objects: messageObjects, isInitialPolling }"
               :channels="channels"
@@ -100,21 +144,22 @@
                 }
               }"
             >
-              <div class="messages">
+              <div class="messages" ref="messagesContainer">
                 <div v-if="isInitialPolling" class="loading">Loading messages...</div>
                 <div v-else>
-                  <div
+                  <message-bubble
                     v-for="msg in getAllMessages(channels[0], messageObjects)"
                     :key="msg.url || msg.id"
-                    :class="['message', isOutgoingMessage(msg) ? 'outgoing' : 'incoming']"
-                  >
-                    <div class="bubble">{{ getMessageContent(msg) }}</div>
-                    <div class="timestamp">{{ formatTimestamp(msg.value?.published) }}</div>
-                    <button class="tag-btn" @click="promptTag(msg)" title="Tag this message">🔖</button>
-                  </div>
+                    :message="msg"
+                    :type="isOutgoingMessage(msg) ? 'outgoing' : 'incoming'"
+                    :show-tag-button="true"
+                    :show-timestamp="true"
+                    @tag="promptTag"
+                  ></message-bubble>
                 </div>
               </div>
             </graffiti-discover>
+            
             <form class="input-row" @submit.prevent="sendMessage($graffitiSession.value)">
               <input type="text"
                      v-model="myMessage"
@@ -130,11 +175,18 @@
         </div>
 
         <div v-else>
-          <div v-if="!selectedTag" class="no-chat">Select a tag to view messages</div>
+          <div v-if="!selectedTag" class="no-chat">
+            <div class="empty-state">
+              <h3>Tagged Messages</h3>
+              <p>Select a tag to view saved messages</p>
+            </div>
+          </div>
           <div v-else class="chat-view">
             <header class="chat-header">
+              <button class="mobile-menu-btn" @click="toggleSidebar">≡</button>
               <h2>Tagged: <span class="tag-label">{{ selectedTag }}</span></h2>
             </header>
+            
             <div class="messages">
               <div v-if="!taggedMessages.length" class="no-chat">
                 No messages with this tag
@@ -142,21 +194,61 @@
               <template v-else>
                 <div v-for="(messages, conversationName) in groupedTaggedMessages" :key="conversationName">
                   <h3 class="conversation-header">{{ conversationName }}</h3>
-                  <div 
+                  <message-bubble
                     v-for="msg in messages" 
                     :key="msg.url" 
-                    class="message tagged">
-                    <div class="bubble">{{ msg.value.content }}</div>
-                    <div class="timestamp">
-                      {{ new Date(msg.value.published).toLocaleString() }}
-                    </div>
-                  </div>
+                    :message="msg"
+                    type="tagged"
+                    :show-timestamp="true"
+                    :conversation-name="conversationName"
+                  ></message-bubble>
                 </div>
               </template>
             </div>
           </div>
         </div>
       </main>
+    </div>
+    
+    <div v-if="showProfileModal" class="modal-overlay" @click.self="closeProfileModal">
+      <div class="modal-content">
+        <button class="modal-close-btn" @click="closeProfileModal">×</button>
+        <profile-component
+          :session="$graffitiSession.value"
+          :is-current-user="profileModalActorId === $graffitiSession.value.actor"
+        ></profile-component>
+      </div>
+    </div>
+    
+    <div v-if="showNewConversationModal" class="modal-overlay" @click.self="closeNewConversationModal">
+      <div class="modal-content">
+        <button class="modal-close-btn" @click="closeNewConversationModal">×</button>
+        <div class="new-conversation-form">
+          <h2>Start New Conversation</h2>
+          <div class="form-group">
+            <label for="user-id">User ID</label>
+            <input 
+              id="user-id" 
+              v-model="newConversationId" 
+              placeholder="Enter user ID"
+              class="form-input"
+            />
+          </div>
+          <div class="form-group">
+            <label for="display-name">Display Name</label>
+            <input 
+              id="display-name" 
+              v-model="newConversationName" 
+              placeholder="Enter display name"
+              class="form-input"
+            />
+          </div>
+          <div class="form-actions">
+            <button @click="closeNewConversationModal" class="cancel-btn">Cancel</button>
+            <button @click="addNewConversation" class="primary-btn">Start Conversation</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </body>

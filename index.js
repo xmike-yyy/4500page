@@ -1,8 +1,17 @@
 import { createApp } from "vue";
 import { GraffitiLocal } from "@graffiti-garden/implementation-local";
 import { GraffitiPlugin } from "@graffiti-garden/wrapper-vue";
+import ProfileComponent from "./profile.js";
+import ProfileButton from "./profilebutton.js";
+import MessageBubble from "./message.js";
 
 createApp({
+  components: {
+    ProfileComponent,
+    ProfileButton,
+    MessageBubble
+  },
+
   data() {
     return {
       myMessage: "",
@@ -32,7 +41,16 @@ createApp({
           { id: 5, actor: "carol", content: "Hello from Carol!", url: "fake-carol-1" },
           { id: 6, actor: "carol", content: "Let's catch up later.", url: "fake-carol-2" }
         ]
-      }
+      },
+      // New properties for UI functionality
+      sidebarOpen: false,
+      searchQuery: "",
+      tagSearchQuery: "",
+      showProfileModal: false,
+      profileModalActorId: null,
+      showNewConversationModal: false,
+      newConversationId: "",
+      newConversationName: ""
     };
   },
 
@@ -57,6 +75,17 @@ createApp({
       });
 
       return groups;
+    },
+
+    // Add filtered conversations for search
+    filteredConversations() {
+      if (!this.searchQuery) return this.conversations;
+      
+      const query = this.searchQuery.toLowerCase();
+      return this.conversations.filter(conv => 
+        conv.name.toLowerCase().includes(query) || 
+        conv.id.toLowerCase().includes(query)
+      );
     }
   },
 
@@ -75,6 +104,7 @@ createApp({
         this.myMessage = "";
         await this.$nextTick();
         this.$refs.messageInput?.focus();
+        this.scrollMessagesToBottom();
       } finally {
         this.sending = false;
       }
@@ -86,6 +116,10 @@ createApp({
       this.view = "inbox";
       this.selectedTag = null;
       this.processedMessages.clear();
+      this.sidebarOpen = false; // Close sidebar on mobile after selection
+      this.$nextTick(() => {
+        this.scrollMessagesToBottom();
+      });
     },
 
     promptTag(msg) {
@@ -142,6 +176,7 @@ createApp({
 
     selectTag(tagName, tagObjects) {
       this.selectedTag = tagName;
+      this.sidebarOpen = false; // Close sidebar on mobile
       
       const taggedWithSelectedTag = tagObjects.filter(obj => obj.value.tag === tagName);
       
@@ -250,11 +285,111 @@ createApp({
         console.error("Failed to load tags from localStorage", e);
         this.sessionTags = {};
       }
+    },
+
+    // New methods for UI functionality
+    toggleSidebar() {
+      this.sidebarOpen = !this.sidebarOpen;
+    },
+
+    openProfileModal(actorId) {
+      this.profileModalActorId = actorId;
+      this.showProfileModal = true;
+    },
+
+    closeProfileModal() {
+      this.showProfileModal = false;
+      this.profileModalActorId = null;
+    },
+
+    viewContactProfile(actorId) {
+      this.profileModalActorId = actorId;
+      this.showProfileModal = true;
+    },
+
+    showNewConversationPrompt() {
+      this.newConversationId = "";
+      this.newConversationName = "";
+      this.showNewConversationModal = true;
+    },
+
+    closeNewConversationModal() {
+      this.showNewConversationModal = false;
+    },
+
+    addNewConversation() {
+      if (!this.newConversationId.trim() || !this.newConversationName.trim()) return;
+      
+      // Check if conversation already exists
+      const exists = this.conversations.some(conv => 
+        conv.id === this.newConversationId.trim()
+      );
+      
+      if (!exists) {
+        this.conversations.push({
+          id: this.newConversationId.trim(),
+          name: this.newConversationName.trim()
+        });
+      }
+      
+      // Select the new conversation
+      this.selectConversation(
+        this.newConversationId.trim(),
+        this.newConversationName.trim()
+      );
+      
+      this.closeNewConversationModal();
+    },
+
+    scrollMessagesToBottom() {
+      this.$nextTick(() => {
+        const container = this.$refs.messagesContainer;
+        if (container) {
+          container.scrollTop = container.scrollHeight;
+        }
+      });
+    },
+
+    filteredTags(tagObjects) {
+      // Get unique tags
+      const uniqueTags = [...new Set(tagObjects.map(obj => obj.value.tag))];
+      
+      // Filter by search if needed
+      if (this.tagSearchQuery) {
+        const query = this.tagSearchQuery.toLowerCase();
+        return uniqueTags.filter(tag => 
+          tag.toLowerCase().includes(query)
+        );
+      }
+      
+      return uniqueTags;
+    }
+  },
+  
+  watch: {
+    // Auto-scroll when messages change
+    '$route': function() {
+      this.scrollMessagesToBottom();
     }
   },
   
   mounted() {
     this.loadStoredTags();
+    this.scrollMessagesToBottom();
+
+    // Add event listener for Escape key to close modals
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (this.showProfileModal) this.closeProfileModal();
+        if (this.showNewConversationModal) this.closeNewConversationModal();
+        if (this.sidebarOpen) this.sidebarOpen = false;
+      }
+    });
+  },
+
+  beforeUnmount() {
+    // Clean up event listeners
+    document.removeEventListener('keydown', this.handleKeydown);
   }
 })
 .use(GraffitiPlugin, { graffiti: new GraffitiLocal() })
