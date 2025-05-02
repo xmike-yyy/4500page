@@ -1,6 +1,6 @@
 import { createApp } from "vue";
 import { GraffitiLocal } from "@graffiti-garden/implementation-local";
-import { GraffitiRemote } from "@graffiti-garden/implementation-remote";
+const { GraffitiRemote } = await import('@graffiti-garden/implementation-remote');
 import { GraffitiPlugin } from "@graffiti-garden/wrapper-vue";
 import ProfileComponent from "./profile.js";
 import ProfileButton from "./profilebutton.js";
