@@ -62,14 +62,14 @@ export default {
         try {
             const [latest] = await this.$graffiti.discover(
               {
-                channels: [ this.actor ],
+                channels: [ actorChannel ],
                 schema: {
                   properties: {
                     value: {
                       required: ['name','describes','published'],
                       properties: {
                         name:      { type: 'string' },
-                        describes: { type: 'string', const: this.actor },
+                        describes: { type: 'string', const: actorChannel },
                         published: { type: 'number' }
                       }
                     }
