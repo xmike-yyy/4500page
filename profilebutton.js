@@ -60,30 +60,30 @@ export default {
         this.error = null;
         
         try {
-          const profiles = await this.$graffiti.query({
-            schema: {
-              properties: {
-                value: {
-                  required: ['describes'],
+            const [latest] = await this.$graffiti.discover(
+              {
+                channels: [ this.actor ],
+                schema: {
                   properties: {
-                    describes: { 
-                      type: 'string',
-                      const: this.actor
+                    value: {
+                      required: ['name','describes','published'],
+                      properties: {
+                        name:      { type: 'string' },
+                        describes: { type: 'string', const: this.actor },
+                        published: { type: 'number' }
+                      }
                     }
                   }
-                }
-              }
-            },
-            channels: [this.actor]
-          }, this.session);
-          
-          const sortedProfiles = profiles.sort((a, b) => 
-            (b.value.published || 0) - (a.value.published || 0)
-          );
-          
-          if (sortedProfiles.length > 0) {
-            this.profile = sortedProfiles[0].value;
-          }
+                },
+                sort:  [{ term: 'published', order: 'desc' }],
+                limit: 1
+              },
+              this.session
+            );
+
+            if (latest) {
+              this.profile = latest.value;
+            }
         } catch (error) {
           console.error('Error fetching profile:', error);
           this.error = 'Failed to load profile';

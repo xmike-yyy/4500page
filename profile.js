@@ -54,34 +54,34 @@ export default {
         this.error = null;
         
         try {
-          const profiles = await this.$graffiti.query({
-            schema: {
-              properties: {
-                value: {
-                  required: ['describes'],
-                  properties: {
-                    describes: { 
-                      type: 'string',
-                      const: this.actorUri
+          const [latest] = await this.$graffiti.discover(
+            {
+              channels: [ this.actorUri ],
+              schema: {
+                properties: {
+                  value: {
+                    required: ['name','describes','published'],
+                    properties: {
+                      name:      { type: 'string' },
+                      describes: { type: 'string', const: this.actorUri },
+                      published: { type: 'number' }
                     }
                   }
                 }
-              }
+              },
+              sort:  [{ term: 'published', order: 'desc' }],
+              limit: 1
             },
-            channels: [this.actorUri]
-          }, this.session);
-          
-          const sortedProfiles = profiles.sort((a, b) => 
-            (b.value.published || 0) - (a.value.published || 0)
+            this.session
           );
           
-          if (sortedProfiles.length > 0) {
-            this.profile = sortedProfiles[0].value;
+          if (latest) {
+            this.profile = latest.value;
             this.formData = {
-              name: this.profile.name || '',
-              pronouns: this.profile.pronouns || '',
-              bio: this.profile.bio || '',
-              iconUrl: this.profile.icon || ''
+              name:    this.profile.name     || '',
+              pronouns:this.profile.pronouns || '',
+              bio:     this.profile.bio      || '',
+              iconUrl: this.profile.icon     || ''
             };
           }
         } catch (error) {
