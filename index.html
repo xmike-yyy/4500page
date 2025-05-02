@@ -74,7 +74,7 @@
               <input type="text" v-model="tagSearchQuery" placeholder="Search tags..." />
             </div>
             
-            <graffiti-discover
+            <graffiti-discover autopoll
               v-slot="{ objects: tagObjects, isInitialPolling }"
               :channels="['designftw']"
               :schema="{
@@ -130,7 +130,7 @@
               ></profile-button>
             </header>
             
-            <graffiti-discover
+            <graffiti-discover autopoll
               v-slot="{ objects: messageObjects, isInitialPolling }"
               :channels="channels"
               :schema="{
