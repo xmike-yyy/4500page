@@ -1,5 +1,6 @@
 import { createApp } from "vue";
 import { GraffitiLocal } from "@graffiti-garden/implementation-local";
+import { GraffitiRemote } from "@graffiti-garden/implementation-remote";
 import { GraffitiPlugin } from "@graffiti-garden/wrapper-vue";
 import ProfileComponent from "./profile.js";
 import ProfileButton from "./profilebutton.js";
@@ -392,5 +393,5 @@ createApp({
     document.removeEventListener('keydown', this.handleKeydown);
   }
 })
-.use(GraffitiPlugin, { graffiti: new GraffitiLocal() })
+.use(GraffitiPlugin, { graffiti: new GraffitiRemote() })
 .mount("#app");

@@ -127,12 +127,14 @@ export default {
         
         try {
           const profileData = {
-            name: this.formData.name.trim() || this.shortenActorUri(this.actorUri),
-            pronouns: this.formData.pronouns.trim(),
-            bio: this.formData.bio.trim(),
-            describes: this.actorUri,
-            published: Date.now()
+          name: this.formData.name.trim() || this.shortenActorUri(this.actorUri),
+          generator: "https://xmike-yyy.github.io/4500page/",
+          pronouns: this.formData.pronouns.trim(),
+          bio: this.formData.bio.trim(),
+          describes: this.actorUri,
+          published: Date.now()
           };
+             
           
           if (this.formData.iconUrl.trim()) {
             profileData.icon = this.formData.iconUrl.trim();
@@ -141,7 +143,7 @@ export default {
           await this.$graffiti.put(
             {
               value: profileData,
-              channels: [this.actorUri]
+              channels: [this.actorUri, "designftw-2025-studio2"]
             },
             this.session
           );
