@@ -50,6 +50,7 @@ export default {
       },
       
       async fetchProfile() {
+        const actorChannel = this.session.actor;
         this.isLoading = true;
         this.error = null;
         
