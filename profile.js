@@ -143,7 +143,8 @@ export default {
           await this.$graffiti.put(
             {
               value: profileData,
-              channels: [this.actorUri, "designftw-2025-studio2"]
+              generator: "https://xmike-yyy.github.io/4500page/",
+              channels: ["designftw-2025-studio2", this.actorUri]
             },
             this.session
           );
