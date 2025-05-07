@@ -38,14 +38,14 @@ const app = createApp({
       );
       return sorted.reduce((groups, msg) => {
         const name = msg.value.conversationName || "Unknown";
-        ;(groups[name] = groups[name] || []).push(msg);
+        (groups[name] = groups[name] || []).push(msg);
         return groups;
       }, {});
     }
   },
 
   methods: {
-    // ——— Profile load/save ———
+    // ——— Profile Loading & Saving ———
     async loadProfile() {
       const session = this.$graffitiSession.value;
       if (!session) return;
@@ -56,10 +56,9 @@ const app = createApp({
         properties: {
           value: {
             type: "object",
-            required: ["name", "generator", "describes", "published"],
+            required: ["name", "describes", "published"],
             properties: {
               name:      { type: "string" },
-              generator: { type: "string", format: "uri" },
               describes: { const: actor },
               published: { type: "number" }
             }
@@ -72,13 +71,20 @@ const app = createApp({
         objs.push(object);
       }
       if (objs.length) {
-        const latest = objs.sort((a, b) => (b.value.published || 0) - (a.value.published || 0))[0];
+        const latest = objs.sort((a, b) =>
+          (b.value.published || 0) - (a.value.published || 0)
+        )[0];
         this.profileName = latest.value.name;
       }
     },
 
     async saveProfile(name) {
-      if (!name) return;
+      let newName = name;
+      if (!newName) {
+        newName = prompt("What’s your name?", this.profileName);
+      }
+      if (!newName?.trim()) return;
+
       const session = this.$graffitiSession.value;
       if (!session) return;
       const actor = await session.actor;
@@ -86,7 +92,7 @@ const app = createApp({
       await this.$graffiti.put(
         {
           value: {
-            name,
+            name:      newName.trim(),
             generator: "https://xmike-yyy.github.io/4500page/",
             describes: actor,
             published: Date.now()
@@ -95,10 +101,10 @@ const app = createApp({
         },
         session
       );
-      this.profileName = name;
+      this.profileName = newName.trim();
     },
 
-    // ——— Messaging & tagging ———
+    // ——— Messaging ———
     async sendMessage(session) {
       if (!this.myMessage.trim() || !this.channels.length) return;
       this.sending = true;
@@ -125,26 +131,30 @@ const app = createApp({
       this.selectedTag = null;
     },
 
+    // ——— Tagging ———
     promptTag(msg) {
       const tag = prompt("Enter tag name for this message:");
       if (!tag?.trim()) return;
       const messageContent = this.getMessageContent(msg);
       const messageId = msg.url || msg.id;
       const channelId = this.channels[0];
-      const conversationName = this.conversations.find(c => c.id === channelId)?.name || "Unknown";
+      const conversationName =
+        this.conversations.find(c => c.id === channelId)?.name || "Unknown";
 
-      // store locally
       if (!this.sessionTags[channelId]) this.sessionTags[channelId] = [];
       this.sessionTags[channelId].push({ messageId, tag: tag.trim(), conversationName });
       try {
         const stored = JSON.parse(localStorage.getItem("designftw-tags") || "{}");
-        (stored[channelId] = stored[channelId] || []).push({ messageId, tag: tag.trim(), conversationName });
+        (stored[channelId] = stored[channelId] || []).push({
+          messageId,
+          tag: tag.trim(),
+          conversationName
+        });
         localStorage.setItem("designftw-tags", JSON.stringify(stored));
       } catch (e) {
         console.error("Failed to store tags", e);
       }
 
-      // remote tag object
       this.$graffiti.put(
         {
           value: {
@@ -171,7 +181,9 @@ const app = createApp({
           ...o.value,
           content: o.value.content || "Message content not available",
           conversationName:
-            this.lookupConversationName(o.value.target) || o.value.conversationName || "Unknown"
+            this.lookupConversationName(o.value.target) ||
+            o.value.conversationName ||
+            "Unknown"
         }
       }));
     },
@@ -193,13 +205,11 @@ const app = createApp({
 
     getConversationNameFromTarget(target) {
       const conv = this.conversations.find(c => target.includes(c.id));
-      if (conv) return conv.name;
-      return "Unknown";
+      return conv ? conv.name : "Unknown";
     },
 
-    // ——— Return only real messages ———
+    // ——— Only real messages ———
     getAllMessages(_channelId, graffitiMessages) {
-      // Sort by timestamp; no fake fallback at all
       return graffitiMessages
         .slice()
         .sort((a, b) => (a.value.published || 0) - (b.value.published || 0));
@@ -219,8 +229,15 @@ const app = createApp({
   },
 
   mounted() {
+    // load tags & profile on startup
     this.loadStoredTags();
     this.loadProfile();
+
+    // reload profile whenever session changes
+    this.$watch(
+      () => this.$graffitiSession.value,
+      sess => sess && this.loadProfile()
+    );
   }
 });
 

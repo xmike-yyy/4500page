@@ -5,14 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>DesignFTW Messenger</title>
   <script type="importmap">
-    {
-      "imports": {
-        "vue": "https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.esm-browser.js",
-        "@graffiti-garden/implementation-local": "https://cdn.jsdelivr.net/npm/@graffiti-garden/implementation-local@0.6.4/dist/browser/index.js",
-        "@graffiti-garden/implementation-remote": "https://cdn.jsdelivr.net/npm/@graffiti-garden/implementation-remote@0.6.2/dist/browser/index.js",
-        "@graffiti-garden/wrapper-vue": "https://cdn.jsdelivr.net/npm/@graffiti-garden/wrapper-vue@0.7.2/dist/browser/plugin.mjs"
-      }
+  {
+    "imports": {
+      "vue": "https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.esm-browser.js",
+      "@graffiti-garden/implementation-remote": "https://cdn.jsdelivr.net/npm/@graffiti-garden/implementation-remote@0.6.2/dist/browser/index.js",
+      "@graffiti-garden/wrapper-vue": "https://cdn.jsdelivr.net/npm/@graffiti-garden/wrapper-vue@0.7.2/dist/browser/plugin.mjs"
     }
+  }
   </script>
   <script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.js"></script>
   <script type="module" src="index.js"></script>
@@ -25,14 +24,11 @@
       <button v-if="!$graffitiSession.value" @click="$graffiti.login()">Log In</button>
       <button v-else @click="$graffiti.logout($graffitiSession.value)">Log Out</button>
 
-      <!-- Simple Name Profile Bar -->
-      <div class="profile-bar">
-        <span v-if="profileName">👋 Hi, {{ profileName }}!</span>
-        <button v-else @click="saveProfile(prompt('What’s your name?'))">
-          Set your name
-        </button>
-        <button v-if="profileName" @click="saveProfile(prompt('New name?', profileName))">
-          Change name
+      <div class="profile-display" v-if="$graffitiSession.value">
+        <span v-if="profileName">👋 {{ profileName }}</span>
+        <span v-else>👋 (no name set)</span>
+        <button @click="saveProfile()">
+          {{ profileName ? 'Change name' : 'Set your name' }}
         </button>
       </div>
     </div>
@@ -40,12 +36,8 @@
     <div class="app-container" v-if="$graffitiSession.value">
       <aside class="sidebar">
         <div class="tab-buttons">
-          <button :class="{active: view==='inbox'}" @click="view='inbox'">
-            Inbox
-          </button>
-          <button :class="{active: view==='tagged'}" @click="view='tagged'">
-            Tagged
-          </button>
+          <button :class="{active: view==='inbox'}" @click="view='inbox'">Inbox</button>
+          <button :class="{active: view==='tagged'}" @click="view='tagged'">Tagged</button>
         </div>
         <div class="tab-content">
           <div v-if="view==='inbox'" class="inbox-list">
@@ -183,4 +175,3 @@
   </div>
 </body>
 </html>
-
