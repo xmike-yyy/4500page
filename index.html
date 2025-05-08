@@ -25,11 +25,39 @@
       <button v-else @click="$graffiti.logout($graffitiSession.value)">Log Out</button>
 
       <div class="profile-display" v-if="$graffitiSession.value">
-        <span v-if="profileName">👋 {{ profileName }}</span>
+        <span v-if="profileName">
+          👋 {{ profileName }}
+          <span v-if="profilePronouns" class="pronouns">({{ profilePronouns }})</span>
+        </span>
         <span v-else>👋 (no name set)</span>
-        <button @click="saveProfile()">
-          {{ profileName ? 'Change name' : 'Set your name' }}
+        <button @click="showProfileForm()">
+          {{ profileName ? 'Edit Profile' : 'Set your profile' }}
         </button>
+      </div>
+    </div>
+
+    <!-- Profile Editor Dialog -->
+    <div v-if="showProfileEditor" class="profile-editor-overlay">
+      <div class="profile-editor">
+        <h2>Edit Your Profile</h2>
+        <form @submit.prevent="saveProfileFromForm">
+          <div class="form-group">
+            <label for="profile-name">Name</label>
+            <input type="text" id="profile-name" v-model="editingProfile.name" required>
+          </div>
+          <div class="form-group">
+            <label for="profile-pronouns">Pronouns</label>
+            <input type="text" id="profile-pronouns" v-model="editingProfile.pronouns" placeholder="Optional">
+          </div>
+          <div class="form-group">
+            <label for="profile-bio">Bio</label>
+            <textarea id="profile-bio" v-model="editingProfile.bio" placeholder="Tell us about yourself"></textarea>
+          </div>
+          <div class="form-actions">
+            <button type="button" @click="cancelProfileEdit">Cancel</button>
+            <button type="submit">Save</button>
+          </div>
+        </form>
       </div>
     </div>
 
@@ -41,14 +69,39 @@
         </div>
         <div class="tab-content">
           <div v-if="view==='inbox'" class="inbox-list">
+            <h3 class="list-title">Communities</h3>
             <ul>
-              <li v-for="conv in conversations"
-                  :key="conv.id"
-                  :class="{selected: conv.id===channels[0]}"
-                  @click="selectConversation(conv.id, conv.name)">
-                {{ conv.name }}
+              <li v-for="community in communities"
+                  :key="community.id"
+                  :class="{selected: community.id===channels[0]}"
+                  @click="selectCommunity(community.id, community.name)">
+                <div class="community-info">
+                  <span class="community-name">{{ community.name }}</span>
+                  <span class="community-description">{{ community.description }}</span>
+                </div>
               </li>
             </ul>
+            <div class="create-community">
+              <button v-if="!showCommunityForm" @click="showCommunityCreationForm" class="create-btn">+ Create Community</button>
+              <div v-else class="community-form">
+                <form @submit.prevent="createCommunity">
+                  <input 
+                    type="text" 
+                    v-model="newCommunityName" 
+                    placeholder="Community name"
+                    required
+                  />
+                  <textarea 
+                    v-model="newCommunityDescription" 
+                    placeholder="Description (optional)"
+                  ></textarea>
+                  <div class="form-actions">
+                    <button type="button" @click="cancelCommunityCreation">Cancel</button>
+                    <button type="submit">Create</button>
+                  </div>
+                </form>
+              </div>
+            </div>
           </div>
           <div v-else class="tagged-list">
             <graffiti-discover
@@ -119,7 +172,16 @@
                     v-for="msg in getAllMessages(channels[0], messageObjects)"
                     :key="msg.url || msg.id"
                     :message="msg"
+                    :is-tagged="false"
+                    :is-own-message="msg.actor === $graffitiSession.value?.actor || msg.value?.actor === $graffitiSession.value?.actor"
+                    :editing="editingMessageUrl === (msg.url || msg.id)"
+                    :edit-content="editMessageContent"
+                    :sender-name="getSenderName(msg.actor || msg.value?.actor)"
                     @tag="promptTag"
+                    @edit="startEditMessage"
+                    @delete="deleteMessage($graffitiSession.value, msg.url || msg.id)"
+                    @save-edit="saveEditMessage($graffitiSession.value, msg, $event)"
+                    @cancel-edit="cancelEdit"
                   />
                 </div>
               </div>
@@ -155,15 +217,17 @@
               </div>
               <template v-else>
                 <div
-                  v-for="(msgs, convo) in groupedTaggedMessages"
-                  :key="convo"
+                  v-for="(msgs, community) in groupedTaggedMessages"
+                  :key="community"
                 >
-                  <h3 class="conversation-header">{{ convo }}</h3>
+                  <h3 class="community-header">{{ community }}</h3>
                   <message-item
                     v-for="msg in msgs"
                     :key="msg.url || msg.id"
                     :message="msg"
                     :is-tagged="true"
+                    :is-own-message="msg.actor === $graffitiSession.value?.actor || msg.value?.actor === $graffitiSession.value?.actor"
+                    :sender-name="getSenderName(msg.actor || msg.value?.actor)"
                   />
                 </div>
               </template>
