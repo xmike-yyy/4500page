@@ -1,5 +1,6 @@
 import { createApp } from "vue";
 import { GraffitiRemote } from "@graffiti-garden/implementation-remote";
+import { GraffitiLocal } from "@graffiti-garden/implementation-local";
 import { GraffitiPlugin } from "@graffiti-garden/wrapper-vue";
 import MessageItem from "./MessageItem.js";
 
@@ -63,6 +64,20 @@ const app = createApp({
     getCommunityName(id) {
       const community = this.communities.find(c => c.id === id);
       return community ? community.name : "Unknown Community";
+    },
+
+    getPersonalTagChannel() {
+      if (!this.$graffitiSession.value) return "designftw-tags-none";
+      return `designftw-tags-${this.$graffitiSession.value.actor}`;
+    },
+
+    scrollToLatestMessages() {
+      setTimeout(() => {
+        const messagesContainer = document.querySelector('.message-list-container');
+        if (messagesContainer) {
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+      }, 50);
     },
 
     async loadProfile() {
@@ -192,6 +207,20 @@ const app = createApp({
       }
     },
 
+    getAllMessages(_channelId, graffitiMessages) {
+      const messages = [...graffitiMessages].sort((a, b) => (a.value.published || 0) - (b.value.published || 0));
+      
+      if (this._lastMessageCount === undefined || 
+          this._lastMessageCount < messages.length || 
+          this._shouldForceScroll) {
+        this.scrollToLatestMessages();
+        this._shouldForceScroll = false;
+      }
+      
+      this._lastMessageCount = messages.length;
+      return messages;
+    },
+
     async sendMessage(session) {
       if (!this.myMessage.trim() || !this.channels.length) return;
       this.sending = true;
@@ -210,6 +239,7 @@ const app = createApp({
           session
         );
         this.myMessage = "";
+        this._shouldForceScroll = true;
         await this.$nextTick();
         this.$refs.messageInput?.focus();
       } finally {
@@ -222,6 +252,8 @@ const app = createApp({
       this.currentGroupName = name;
       this.view = "inbox";
       this.selectedTag = null;
+      this._lastMessageCount = undefined;
+      this._shouldForceScroll = true;
     },
 
     startEditMessage(msg) {
@@ -288,6 +320,8 @@ const app = createApp({
         console.error("Failed to store tags", e);
       }
 
+      const personalTagChannel = this.getPersonalTagChannel();
+      
       this.$graffiti.put(
         {
           value: {
@@ -299,7 +333,7 @@ const app = createApp({
             channelId,
             published: Date.now()
           },
-          channels: ["designftw"]
+          channels: [personalTagChannel]
         },
         this.$graffitiSession.value
       );
@@ -319,6 +353,11 @@ const app = createApp({
             "Unknown"
         }
       }));
+      
+      this.$nextTick(() => {
+        const container = document.querySelector('.message-list-container');
+        if (container) container.scrollTop = 0;
+      });
     },
 
     lookupCommunityName(target) {
@@ -343,12 +382,6 @@ const app = createApp({
         }
       }
       return "Unknown Community";
-    },
-
-    getAllMessages(_channelId, graffitiMessages) {
-      return graffitiMessages
-        .slice()
-        .sort((a, b) => (a.value.published || 0) - (b.value.published || 0));
     },
 
     getSenderName(actorId) {
@@ -463,5 +496,5 @@ const app = createApp({
 });
 
 app
-  .use(GraffitiPlugin, { graffiti: new GraffitiRemote() })
+  .use(GraffitiPlugin, { graffiti: new GraffitiLocal() })
   .mount("#app");
