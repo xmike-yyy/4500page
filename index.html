@@ -37,6 +37,17 @@
         </div>
       </div>
     </header>
+    
+    <div class="toast-container" v-if="toast.show">
+      <div class="toast" :class="toast.type">
+        <div class="toast-content">
+          <span class="toast-icon">{{ toast.icon }}</span>
+          <span class="toast-message">{{ toast.message }}</span>
+        </div>
+        <button class="toast-close" @click="hideToast">×</button>
+      </div>
+    </div>
+
     <div v-if="showProfileEditor" class="profile-editor-overlay">
       <div class="profile-editor">
         <h2>Edit Your Profile</h2>
@@ -105,39 +116,23 @@
         </div>
         
         <div v-else class="sidebar-content">
-          <graffiti-discover
-            autopoll
-            v-slot="{ objects: tagObjects, isInitialPolling }"
-            :channels="[getPersonalTagChannel()]"
-            :schema="{
-              properties: {
-                value: {
-                  required: ['activity','target','tag'],
-                  properties: {
-                    activity: { type: 'string', const: 'Tag' },
-                    target:   { type: 'string' },
-                    tag:      { type: 'string' }
-                  }
-                }
-              }
-            }"
-          >
-            <div v-if="isInitialPolling" class="loading">Loading your personal tags...</div>
+          <div>
+            <div v-if="Object.keys(sessionTags).length === 0" class="loading">No tags yet.</div>
             <div v-else>
               <ul class="tags-list">
-                <li v-for="tag in [...new Set(tagObjects.map(o => o.value.tag))]"
+                <li v-for="tag in [...new Set(Object.values(sessionTags).flat().map(t => t.tag))]"
                     :key="tag"
                     :class="['tag-item', {selected: selectedTag === tag}]"
-                    @click="selectTag(tag, tagObjects)">
+                    @click="selectTag(tag)">
                   <span class="tag-name">{{ tag }}</span>
-                  <span class="tag-count">{{ tagObjects.filter(o => o.value.tag === tag).length }}</span>
+                  <span class="tag-count">{{ Object.values(sessionTags).flat().filter(t => t.tag === tag).length }}</span>
                 </li>
               </ul>
-              <div class="storage-notice" v-if="Object.keys(sessionTags).length">
-                Tags are personal and only visible to you
+              <div class="storage-notice">
+                Tags are stored locally on your device
               </div>
             </div>
-          </graffiti-discover>
+          </div>
         </div>
       </aside>
 
@@ -180,11 +175,13 @@
                       :editing="editingMessageUrl === (msg.url || msg.id)"
                       :edit-content="editMessageContent"
                       :sender-name="getSenderName(msg.actor || msg.value?.actor)"
+                      :message-tags="getMessageTags(msg.url || msg.id)"
                       @tag="promptTag"
                       @edit="startEditMessage"
                       @delete="deleteMessage($graffitiSession.value, msg.url || msg.id)"
                       @save-edit="saveEditMessage($graffitiSession.value, msg, $event)"
                       @cancel-edit="cancelEdit"
+                      @remove-tag="removeTag"
                     />
                   </div>
                 </div>
@@ -237,6 +234,8 @@
                       :is-tagged="true"
                       :is-own-message="msg.actor === $graffitiSession.value?.actor || msg.value?.actor === $graffitiSession.value?.actor"
                       :sender-name="getSenderName(msg.actor || msg.value?.actor)"
+                      :message-tags="getMessageTags(msg.value?.target)"
+                      @remove-tag="removeTag"
                     />
                   </div>
                 </div>

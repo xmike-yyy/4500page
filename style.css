@@ -9,6 +9,9 @@
     --border: #ddd;
     --tag-bg: #e9f0fd;
     --tag-color: #0055cc;
+    --success: #34c759;
+    --error: #ff3b30;
+    --warning: #ff9500;
   }
   
   * {
@@ -489,7 +492,7 @@
   }
   
   .timestamp {
-    font-size: 0.7rem;
+    font-size: 0.75em;
     color: #999;
     margin-top: 2px;
     padding-left: 4px;
@@ -774,4 +777,278 @@
     .message {
       max-width: 85%;
     }
+  }
+  
+  /* Toast Notifications */
+  .toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    max-width: 320px;
+    animation: toastSlideIn 0.3s ease-out;
+  }
+  
+  .toast {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    overflow: hidden;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+  }
+  
+  .toast.success {
+    border-left: 4px solid var(--success);
+  }
+  
+  .toast.error {
+    border-left: 4px solid var(--error);
+  }
+  
+  .toast.warning {
+    border-left: 4px solid var(--warning);
+  }
+  
+  .toast.info {
+    border-left: 4px solid var(--primary);
+  }
+  
+  .toast-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .toast-icon {
+    font-size: 1.2rem;
+  }
+  
+  .toast-message {
+    font-size: 0.9rem;
+    color: #333;
+    font-weight: 500;
+  }
+  
+  .toast-close {
+    background: transparent;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
+    padding: 0 0 0 16px;
+  }
+  
+  @keyframes toastSlideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  
+  /* Message tag indicators */
+  .message-tag-badge {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 6px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
+    padding: 2px 6px;
+    font-size: 12px;
+    vertical-align: middle;
+    animation: fadeIn 0.3s ease;
+  }
+  
+  .message.incoming .message-tag-badge {
+    background: rgba(0, 0, 0, 0.1);
+  }
+  
+  .message.outgoing .message-tag-badge {
+    background: rgba(255, 255, 255, 0.25);
+  }
+  
+  .tag-icon {
+    font-size: 14px;
+    margin-right: 2px;
+  }
+  
+  .tag-count {
+    font-size: 10px;
+    font-weight: bold;
+    background: white;
+    color: var(--tag-color);
+    border-radius: 8px;
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 2px;
+  }
+  
+  .message-tag-tooltip {
+    position: absolute;
+    top: -30px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+    z-index: 10;
+  }
+  
+  .message:hover .message-tag-tooltip {
+    opacity: 1;
+  }
+  
+  .message.outgoing .message-tag-tooltip {
+    right: 0;
+  }
+  
+  .message.incoming .message-tag-tooltip,
+  .message.tagged .message-tag-tooltip {
+    left: 0;
+  }
+  
+  /* Message tag indicators */
+  .tag-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: all 0.2s ease;
+    vertical-align: middle;
+  }
+  
+  .tag-indicator:hover {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  
+  .tags-popup {
+    position: absolute;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    z-index: 10;
+    min-width: 180px;
+    max-width: 250px;
+    overflow: hidden;
+  }
+  
+  .message.incoming .tags-popup {
+    left: 0;
+    top: 100%;
+    margin-top: 8px;
+  }
+  
+  .message.outgoing .tags-popup {
+    right: 0;
+    top: 100%;
+    margin-top: 8px;
+  }
+  
+  .tags-popup-header {
+    padding: 8px 12px;
+    background: #f5f5f7;
+    font-weight: 500;
+    color: #555;
+    font-size: 0.9rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+  }
+  
+  .popup-close-btn {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    color: #999;
+  }
+  
+  .popup-close-btn:hover {
+    color: #333;
+  }
+  
+  .tags-list {
+    padding: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  
+  .tag-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    background: #f5f5f5;
+    border-radius: 6px;
+    margin-bottom: 6px;
+    transition: background-color 0.2s;
+  }
+  
+  .tag-item:hover {
+    background: #eeeeee;
+  }
+  
+  .tag-emoji {
+    font-size: 0.9em;
+    margin-right: 6px;
+  }
+  
+  .tag-name {
+    font-size: 0.9em;
+    color: #333;
+    flex: 1;
+  }
+  
+  .tag-count {
+    color: #666;
+    font-size: 0.8em;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    min-width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 6px;
+  }
+  
+  .remove-tag {
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 1.2em;
+    line-height: 1;
+    transition: all 0.2s;
+  }
+  
+  .remove-tag:hover {
+    background: rgba(255, 68, 68, 0.1);
+    color: #ff4444;
+  }
+  
+  /* Update message bubble to handle tags */
+  .message .bubble {
+    position: relative;
   }

@@ -26,12 +26,17 @@ export default defineComponent({
     senderName: {
       type: String,
       default: ""
+    },
+    messageTags: {
+      type: Array,
+      default: () => []
     }
   },
-  emits: ['tag', 'edit', 'delete', 'save-edit', 'cancel-edit'],
+  emits: ['tag', 'edit', 'delete', 'save-edit', 'cancel-edit', 'remove-tag'],
   data() {
     return {
-      editText: ""
+      editText: "",
+      showTagPopup: false
     };
   },
   watch: {
@@ -68,6 +73,20 @@ export default defineComponent({
     },
     showSender() {
       return !this.isOwnMessage && !this.isTagged;
+    },
+    hasTags() {
+      return this.messageTags && this.messageTags.length > 0;
+    },
+    groupedTags() {
+      const groups = {};
+      this.messageTags.forEach(tag => {
+        if (!groups[tag]) {
+          groups[tag] = 1;
+        } else {
+          groups[tag]++;
+        }
+      });
+      return groups;
     }
   },
   methods: {
@@ -87,16 +106,33 @@ export default defineComponent({
       } else if (e.key === 'Enter' && e.ctrlKey) {
         this.handleSave();
       }
+    },
+    removeTag(tag) {
+      const messageId = this.message.url || this.message.id;
+      this.$emit('remove-tag', tag, messageId);
+      // Close popup if no tags left
+      if (this.messageTags.length === 1) {
+        this.showTagPopup = false;
+      }
+    },
+    toggleTagPopup() {
+      if (this.hasTags) {
+        this.showTagPopup = !this.showTagPopup;
+      }
+    },
+    closeTagPopup() {
+      this.showTagPopup = false;
     }
   },
   template: `
-    <div :class="['message', messageClass, {'editing': editing}]">
+    <div :class="['message', messageClass, {'editing': editing, 'has-tags': hasTags}]">
       <div v-if="showSender" class="sender-name">{{ senderName || 'Unknown user' }}</div>
       
       <div class="bubble">
         <template v-if="!editing">
           {{ bubbleContent }}
           <span v-if="wasEdited" class="edited-indicator">(edited)</span>
+          <span v-if="hasTags" class="tag-indicator" @click="toggleTagPopup">🔖</span>
         </template>
         <div v-else class="edit-area">
           <textarea 
@@ -113,6 +149,23 @@ export default defineComponent({
       </div>
       
       <div class="timestamp">{{ timestamp }}</div>
+      
+      <div v-if="showTagPopup" class="tags-popup">
+        <div class="tags-popup-header">
+          Message Tags
+          <button class="popup-close-btn" @click="closeTagPopup">×</button>
+        </div>
+        <div class="tags-list">
+          <div v-for="(count, tag) in groupedTags" 
+               :key="tag" 
+               class="tag-item">
+            <span class="tag-emoji">🔖</span>
+            <span class="tag-name">{{ tag }}</span>
+            <span v-if="count > 1" class="tag-count">{{ count }}</span>
+            <button class="remove-tag" @click="removeTag(tag)" title="Remove tag">×</button>
+          </div>
+        </div>
+      </div>
       
       <div class="message-actions" v-if="!isTagged">
         <button 

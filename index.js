@@ -39,7 +39,21 @@ const app = createApp({
       
       newCommunityName: "",
       newCommunityDescription: "",
-      showCommunityForm: false
+      showCommunityForm: false,
+      
+      toast: {
+        show: false,
+        message: '',
+        type: 'info',
+        icon: '',
+        timeout: null
+      },
+      
+      _tagCache: {},
+      _senderCache: {},
+      _forceUiRefresh: false,
+      _shouldForceScroll: false,
+      _lastMessageCount: undefined
     };
   },
 
@@ -67,8 +81,7 @@ const app = createApp({
     },
 
     getPersonalTagChannel() {
-      if (!this.$graffitiSession.value) return "designftw-tags-none";
-      return `designftw-tags-${this.$graffitiSession.value.actor}`;
+      return "designftw-tags";
     },
 
     scrollToLatestMessages() {
@@ -78,6 +91,70 @@ const app = createApp({
           messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
       }, 50);
+    },
+    
+    showToast(message, type = 'info', duration = 3000) {
+      // Clear any existing timeout
+      if (this.toast.timeout) {
+        clearTimeout(this.toast.timeout);
+      }
+      
+      // Set icon based on type
+      let icon = '';
+      switch (type) {
+        case 'success':
+          icon = '✅';
+          break;
+        case 'error':
+          icon = '❌';
+          break;
+        case 'warning':
+          icon = '⚠️';
+          break;
+        default:
+          icon = 'ℹ️';
+      }
+      
+      // Update toast data
+      this.toast = {
+        show: true,
+        message,
+        type,
+        icon,
+        timeout: setTimeout(() => {
+          this.hideToast();
+        }, duration)
+      };
+    },
+    
+    hideToast() {
+      this.toast.show = false;
+      if (this.toast.timeout) {
+        clearTimeout(this.toast.timeout);
+        this.toast.timeout = null;
+      }
+    },
+    
+    getMessageTags(messageId) {
+      // Cache message tags for performance
+      if (!this._tagCache) this._tagCache = {};
+      if (this._tagCache[messageId]) return this._tagCache[messageId];
+      
+      const allTags = Object.values(this.sessionTags).flat();
+      const tags = allTags
+        .filter(t => t.messageId === messageId)
+        .map(t => t.tag);
+      
+      this._tagCache[messageId] = tags;
+      return tags;
+    },
+    
+    loadStoredTags() {
+      try {
+        this.sessionTags = JSON.parse(localStorage.getItem("designftw-tags") || "{}");
+      } catch {
+        this.sessionTags = {};
+      }
     },
 
     async loadProfile() {
@@ -212,9 +289,11 @@ const app = createApp({
       
       if (this._lastMessageCount === undefined || 
           this._lastMessageCount < messages.length || 
-          this._shouldForceScroll) {
+          this._shouldForceScroll ||
+          this._forceUiRefresh) {
         this.scrollToLatestMessages();
         this._shouldForceScroll = false;
+        this._forceUiRefresh = false;
       }
       
       this._lastMessageCount = messages.length;
@@ -254,6 +333,8 @@ const app = createApp({
       this.selectedTag = null;
       this._lastMessageCount = undefined;
       this._shouldForceScroll = true;
+      this._tagCache = {};
+      this._senderCache = {};
     },
 
     startEditMessage(msg) {
@@ -301,56 +382,66 @@ const app = createApp({
     promptTag(msg) {
       const tag = prompt("Enter tag name for this message:");
       if (!tag?.trim()) return;
+      
       const messageContent = this.getMessageContent(msg);
       const messageId = msg.url || msg.id;
+      console.log("Tagging message ID:", messageId);
+      
       const channelId = this.channels[0];
       const communityName = this.getCommunityName(channelId);
+      const actor = msg.actor || msg.value?.actor;
 
+      // Store in session tags
       if (!this.sessionTags[channelId]) this.sessionTags[channelId] = [];
-      this.sessionTags[channelId].push({ messageId, tag: tag.trim(), communityName });
+      this.sessionTags[channelId].push({
+        messageId,
+        tag: tag.trim(),
+        communityName,
+        content: messageContent,
+        actor,
+        channelId
+      });
+      
       try {
         const stored = JSON.parse(localStorage.getItem("designftw-tags") || "{}");
         (stored[channelId] = stored[channelId] || []).push({
           messageId,
           tag: tag.trim(),
-          communityName
+          communityName,
+          content: messageContent,
+          actor,
+          channelId
         });
         localStorage.setItem("designftw-tags", JSON.stringify(stored));
+        
+        // Clear tag cache for this message
+        if (this._tagCache) {
+          this._tagCache[messageId] = null;
+        }
+        
+        this.showToast(`Tag "${tag.trim()}" added successfully!`, 'success');
+        
+        // Force UI refresh
+        this._forceUiRefresh = true;
+        setTimeout(() => {
+          this._forceUiRefresh = false;
+        }, 100);
       } catch (e) {
         console.error("Failed to store tags", e);
+        this.showToast("Failed to add tag", 'error');
       }
-
-      const personalTagChannel = this.getPersonalTagChannel();
-      
-      this.$graffiti.put(
-        {
-          value: {
-            activity: "Tag",
-            target: messageId,
-            tag: tag.trim(),
-            content: messageContent,
-            communityName,
-            channelId,
-            published: Date.now()
-          },
-          channels: [personalTagChannel]
-        },
-        this.$graffitiSession.value
-      );
     },
 
-    selectTag(tagName, tagObjects) {
+    selectTag(tagName) {
       this.selectedTag = tagName;
-      const tagged = tagObjects.filter(o => o.value.tag === tagName);
-      this.taggedMessages = tagged.map(o => ({
-        ...o,
+      const tagged = Object.values(this.sessionTags).flat().filter(t => t.tag === tagName);
+      this.taggedMessages = tagged.map(t => ({
         value: {
-          ...o.value,
-          content: o.value.content || "Message content not available",
-          communityName:
-            this.lookupCommunityName(o.value.target) ||
-            o.value.communityName ||
-            "Unknown"
+          content: t.content || "Message content not available",
+          communityName: t.communityName,
+          published: Date.now(),
+          actor: t.actor || this.$graffitiSession.value?.actor,
+          channelId: t.channelId
         }
       }));
       
@@ -399,14 +490,6 @@ const app = createApp({
 
     getMessageContent(msg) {
       return msg.value?.content || msg.content;
-    },
-
-    loadStoredTags() {
-      try {
-        this.sessionTags = JSON.parse(localStorage.getItem("designftw-tags") || "{}");
-      } catch {
-        this.sessionTags = {};
-      }
     },
 
     showProfileForm() {
@@ -464,6 +547,35 @@ const app = createApp({
       this.showCommunityForm = false;
       this.newCommunityName = "";
       this.newCommunityDescription = "";
+    },
+
+    removeTag(tag, messageId) {
+      try {
+        const stored = JSON.parse(localStorage.getItem("designftw-tags") || "{}");
+        for (const channelId in stored) {
+          stored[channelId] = stored[channelId].filter(t => 
+            !(t.messageId === messageId && t.tag === tag)
+          );
+        }
+        localStorage.setItem("designftw-tags", JSON.stringify(stored));
+        
+        // Update in-memory tags and reset only the specific cache entry
+        this.sessionTags = stored;
+        if (this._tagCache && this._tagCache[messageId]) {
+          this._tagCache[messageId] = null;
+        }
+        
+        this.showToast(`Tag "${tag}" removed successfully!`, 'success');
+        
+        // Force UI refresh
+        this._forceUiRefresh = true;
+        setTimeout(() => {
+          this._forceUiRefresh = false;
+        }, 100);
+      } catch (e) {
+        console.error("Failed to remove tag", e);
+        this.showToast("Failed to remove tag", 'error');
+      }
     }
   },
 
