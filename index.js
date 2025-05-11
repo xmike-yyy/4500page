@@ -558,16 +558,12 @@ const app = createApp({
           );
         }
         localStorage.setItem("designftw-tags", JSON.stringify(stored));
-        
-        // Update in-memory tags and reset only the specific cache entry
         this.sessionTags = stored;
         if (this._tagCache && this._tagCache[messageId]) {
           this._tagCache[messageId] = null;
         }
         
         this.showToast(`Tag "${tag}" removed successfully!`, 'success');
-        
-        // Force UI refresh
         this._forceUiRefresh = true;
         setTimeout(() => {
           this._forceUiRefresh = false;
@@ -608,5 +604,5 @@ const app = createApp({
 });
 
 app
-  .use(GraffitiPlugin, { graffiti: new GraffitiLocal() })
+  .use(GraffitiPlugin, { graffiti: new GraffitiRemote() })
   .mount("#app");
