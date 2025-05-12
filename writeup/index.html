@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DesignFTW Messenger - Design Writeup</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0 auto;
+            max-width: 800px;
+            padding: 20px;
+            color: #333;
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        section {
+            margin-bottom: 30px;
+        }
+        .highlight {
+            background-color: #f8f9fa;
+            border-left: 3px solid #007bff;
+            padding: 10px 15px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>DesignFTW Messenger - Design Writeup</h1>
+    </header>
+
+    <section id="design-writeup">
+        <h2>Design Decisions Documentation</h2>
+        <div class="writeup-content">
+            <p>This messaging application addresses a fundamental information retrieval problem in current messaging platforms: the difficulty of finding specific messages without relying solely on keyword searching. The primary goal was to enhance the information architecture through a personalized tagging system that improves findability and creates user-defined semantic connections between messages. By implementing a dedicated tagging mechanism with high visibility and discoverability, the application reduces the cognitive load required to locate important information later. The interface design follows established mental models from popular messaging applications to leverage familiarity and increase learnability, allowing users to focus on the novel tagging functionality rather than learning an entirely new communication paradigm.</p>
+            
+            <p>The development process relied heavily on iterative design. Initial paper prototypes explored different interaction patterns for tagging messages, revealing significant usability issues when users were required to hold messages to access tagging functionality—a discovery phase failure that created visibility problems. User feedback indicated the need for better signposting of tagging capabilities and improved navigational paths to access tagged content. These insights informed the mid-fidelity Figma prototypes, where the tagging mechanism was redesigned with explicit visual affordances and the navigation was restructured with a dedicated "Tagged" tab in the primary navigation bar. This significant improvement in the interface's discoverability was confirmed through subsequent user feedback sessions, validating the revised information architecture and interaction design.</p>
+            
+            <p>The final implementation incorporates additional UX elements that emerged from both class principles and user studies. Micro-interactions and animations provide system feedback that reinforces the user's mental model of how the tagging system works, addressing Norman's gulf of evaluation. Toast notifications were added following Studio 13 feedback to provide clear feedback on action success or failure, improving the system's perceived affordances. The scrollable message area, another direct improvement from user testing, enhances the application's overall usability in practical conversation contexts. By combining semantic tagging capabilities with familiar messaging patterns and these thoughtful feedback mechanisms, the application achieves both utility and usability while introducing a novel approach to personal information management within messaging contexts.</p>
+        </div>
+    </section>
+</body>
+</html>
