@@ -80,18 +80,64 @@
         </div>
         
         <div v-if="view==='inbox'" class="sidebar-content">
-          <h3 class="list-title">Communities</h3>
+          <h3 class="list-title">My Communities</h3>
           <ul class="communities-list">
-            <li v-for="community in communities"
-                :key="community.id"
-                :class="{selected: community.id===channels[0]}"
-                @click="selectCommunity(community.id, community.name)">
+            <li v-for="id in joinedCommunities"
+                :key="id"
+                :class="{selected: id===channels[0]}"
+                @click="selectCommunity(id, getCommunityName(id))">
               <div class="community-info">
-                <span class="community-name">{{ community.name }}</span>
-                <span class="community-description">{{ community.description }}</span>
+                <span class="community-name">{{ getCommunityName(id) }}</span>
+                <span class="community-description">{{ communities.find(c => c.id === id)?.description }}</span>
+              </div>
+              <div class="community-actions">
+                <button v-if="id !== 'general' && 
+                       communities.find(c => c.id === id)?.createdBy === $graffitiSession.value?.actor" 
+                      class="delete-community-btn" 
+                      @click.stop="deleteCommunity(id)" 
+                      title="Delete community">
+                  Delete
+                </button>
+                <button v-else-if="id !== 'general'" 
+                      class="leave-btn" 
+                      @click.stop="leaveCommunity(id)" 
+                      title="Leave community">
+                  Leave
+                </button>
               </div>
             </li>
           </ul>
+          
+          <div class="available-communities-section">
+            <div class="available-header" @click="toggleAvailableCommunities">
+              <h3 class="list-title available-title">
+                Available Communities 
+                <span class="available-count">({{ communities.filter(c => !joinedCommunities.includes(c.id)).length }})</span>
+              </h3>
+              <span class="dropdown-icon" :class="{ 'expanded': availableCommunitiesExpanded }">▼</span>
+            </div>
+            
+            <transition name="slide">
+              <ul v-if="availableCommunitiesExpanded" class="communities-list available-communities">
+                <li v-for="community in communities.filter(c => !joinedCommunities.includes(c.id))"
+                    :key="community.id">
+                  <div class="community-info">
+                    <span class="community-name">{{ community.name }}</span>
+                    <span class="community-description">{{ community.description }}</span>
+                  </div>
+                  <button class="join-btn" 
+                          @click.stop="joinCommunity(community.id)" 
+                          title="Join community">
+                    Join
+                  </button>
+                </li>
+                <li v-if="communities.filter(c => !joinedCommunities.includes(c.id)).length === 0" class="no-communities">
+                  No available communities to join
+                </li>
+              </ul>
+            </transition>
+          </div>
+          
           <div class="create-community">
             <button v-if="!showCommunityForm" @click="showCommunityCreationForm" class="create-btn">+ Create Community</button>
             <div v-else class="community-form">

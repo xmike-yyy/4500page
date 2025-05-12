@@ -24,11 +24,13 @@ const app = createApp({
       view: "inbox",
       
       communities: [
-        { id: "general", name: "General Chat", description: "Discussion about anything and everything" },
-        { id: "tech", name: "Technology", description: "Tech discussions and news" },
-        { id: "gaming", name: "Gaming", description: "Gaming discussions and meetups" },
-        { id: "music", name: "Music", description: "Share your favorite tunes and artists" }
+        { id: "general", name: "General Chat", description: "Discussion about anything and everything", createdBy: "system" },
+        { id: "tech", name: "Technology", description: "Tech discussions and news", createdBy: "system" },
+        { id: "gaming", name: "Gaming", description: "Gaming discussions and meetups", createdBy: "system" },
+        { id: "music", name: "Music", description: "Share your favorite tunes and artists", createdBy: "system" }
       ],
+      
+      joinedCommunities: ["general"],
       
       editingMessageUrl: null,
       editMessageContent: "",
@@ -40,6 +42,8 @@ const app = createApp({
       newCommunityName: "",
       newCommunityDescription: "",
       showCommunityForm: false,
+      
+      availableCommunitiesExpanded: false,
       
       toast: {
         show: false,
@@ -94,12 +98,15 @@ const app = createApp({
     },
     
     showToast(message, type = 'info', duration = 3000) {
-      // Clear any existing timeout
-      if (this.toast.timeout) {
+      if (!this || typeof this.toast === 'undefined') {
+        console.warn('Toast notification system not initialized yet');
+        return;
+      }
+      
+      if (this.toast && this.toast.timeout) {
         clearTimeout(this.toast.timeout);
       }
       
-      // Set icon based on type
       let icon = '';
       switch (type) {
         case 'success':
@@ -115,7 +122,6 @@ const app = createApp({
           icon = 'ℹ️';
       }
       
-      // Update toast data
       this.toast = {
         show: true,
         message,
@@ -128,6 +134,10 @@ const app = createApp({
     },
     
     hideToast() {
+      if (!this || typeof this.toast === 'undefined') {
+        return;
+      }
+      
       this.toast.show = false;
       if (this.toast.timeout) {
         clearTimeout(this.toast.timeout);
@@ -136,7 +146,6 @@ const app = createApp({
     },
     
     getMessageTags(messageId) {
-      // Cache message tags for performance
       if (!this._tagCache) this._tagCache = {};
       if (this._tagCache[messageId]) return this._tagCache[messageId];
       
@@ -327,14 +336,14 @@ const app = createApp({
     },
 
     selectCommunity(id, name) {
+      if (!this.joinedCommunities.includes(id)) {
+        this.joinCommunity(id);
+      }
+      
       this.channels = [id];
       this.currentGroupName = name;
-      this.view = "inbox";
-      this.selectedTag = null;
-      this._lastMessageCount = undefined;
       this._shouldForceScroll = true;
-      this._tagCache = {};
-      this._senderCache = {};
+      this.view = "inbox";
     },
 
     startEditMessage(msg) {
@@ -391,7 +400,6 @@ const app = createApp({
       const communityName = this.getCommunityName(channelId);
       const actor = msg.actor || msg.value?.actor;
 
-      // Store in session tags
       if (!this.sessionTags[channelId]) this.sessionTags[channelId] = [];
       this.sessionTags[channelId].push({
         messageId,
@@ -414,21 +422,19 @@ const app = createApp({
         });
         localStorage.setItem("designftw-tags", JSON.stringify(stored));
         
-        // Clear tag cache for this message
         if (this._tagCache) {
           this._tagCache[messageId] = null;
         }
         
-        this.showToast(`Tag "${tag.trim()}" added successfully!`, 'success');
+        this.showToast?.(`Tag "${tag.trim()}" added successfully!`, 'success');
         
-        // Force UI refresh
         this._forceUiRefresh = true;
         setTimeout(() => {
           this._forceUiRefresh = false;
         }, 100);
       } catch (e) {
         console.error("Failed to store tags", e);
-        this.showToast("Failed to add tag", 'error');
+        this.showToast?.("Failed to add tag", 'error');
       }
     },
 
@@ -515,27 +521,100 @@ const app = createApp({
       this.showProfileEditor = false;
     },
 
-    createCommunity() {
+    async createCommunity() {
       if (!this.newCommunityName.trim()) return;
       
-      const id = this.newCommunityName.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now().toString(36);
+      const id = this.newCommunityName.toLowerCase().replace(/\s+/g, '-');
       
-      this.communities.push({
-        id,
+      if (this.communities.some(c => c.id === id)) {
+        this.showToast?.('A community with a similar name already exists', 'error');
+        return;
+      }
+      
+      const session = this.$graffitiSession.value;
+      if (!session) return;
+      
+      const actor = await session.actor;
+      
+      const newCommunity = {
+        id: id,
         name: this.newCommunityName.trim(),
-        description: this.newCommunityDescription.trim() || "A new community"
-      });
+        description: this.newCommunityDescription.trim() || `Chat about ${this.newCommunityName.trim()}`,
+        createdBy: actor
+      };
+      
+      this.communities.push(newCommunity);
+      this.joinCommunity(id);
+      this.selectCommunity(id, newCommunity.name);
       
       this.newCommunityName = "";
       this.newCommunityDescription = "";
       this.showCommunityForm = false;
       
-      this.selectCommunity(id, this.communities[this.communities.length - 1].name);
+      this.saveCommunities();
+      this.showToast?.(`Created and joined ${newCommunity.name}!`, 'success');
+    },
+    
+    async deleteCommunity(communityId) {
+      const communityIndex = this.communities.findIndex(c => c.id === communityId);
+      if (communityIndex === -1) return;
       
+      const community = this.communities[communityIndex];
+      
+      const session = this.$graffitiSession.value;
+      if (!session) return;
+      
+      const actor = await session.actor;
+      if (community.createdBy !== actor) {
+        this.showToast?.("You can only delete communities you created", 'error');
+        return;
+      }
+      
+      if (communityId === 'general') {
+        this.showToast?.("The General Chat cannot be deleted", 'warning');
+        return;
+      }
+      
+      if (confirm(`Are you sure you want to delete the community "${community.name}"?`)) {
+        if (this.channels[0] === communityId) {
+          this.selectCommunity('general', 'General Chat');
+        }
+        
+        const joinedIndex = this.joinedCommunities.indexOf(communityId);
+        if (joinedIndex > -1) {
+          this.joinedCommunities.splice(joinedIndex, 1);
+          this.saveJoinedCommunities();
+        }
+        
+        this.communities.splice(communityIndex, 1);
+        this.saveCommunities();
+        
+        this.showToast?.(`Community "${community.name}" has been deleted`, 'success');
+      }
+    },
+    
+    saveCommunities() {
       try {
-        localStorage.setItem("designftw-communities", JSON.stringify(this.communities));
+        const communitiesToSave = this.communities.filter(c => c.createdBy !== "system");
+        localStorage.setItem("designftw-communities", JSON.stringify(communitiesToSave));
       } catch (e) {
-        console.error("Failed to store communities", e);
+        console.error("Failed to save communities", e);
+      }
+    },
+    
+    loadCommunities() {
+      try {
+        const saved = localStorage.getItem("designftw-communities");
+        if (saved) {
+          const userCommunities = JSON.parse(saved);
+          for (const community of userCommunities) {
+            if (!this.communities.some(c => c.id === community.id)) {
+              this.communities.push(community);
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load communities", e);
       }
     },
     
@@ -563,42 +642,131 @@ const app = createApp({
           this._tagCache[messageId] = null;
         }
         
-        this.showToast(`Tag "${tag}" removed successfully!`, 'success');
+        this.showToast?.(`Tag "${tag}" removed successfully!`, 'success');
         this._forceUiRefresh = true;
         setTimeout(() => {
           this._forceUiRefresh = false;
         }, 100);
       } catch (e) {
         console.error("Failed to remove tag", e);
-        this.showToast("Failed to remove tag", 'error');
+        this.showToast?.("Failed to remove tag", 'error');
       }
+    },
+
+    joinCommunity(communityId) {
+      if (!this.joinedCommunities.includes(communityId)) {
+        this.joinedCommunities.push(communityId);
+        this.saveJoinedCommunities();
+        this.showToast?.(`You've joined ${this.getCommunityName(communityId)}`, 'success');
+        if (this.joinedCommunities.length === 1) {
+          this.selectCommunity(communityId, this.getCommunityName(communityId));
+        }
+      }
+    },
+
+    leaveCommunity(communityId) {
+      if (communityId === 'general') {
+        this.showToast?.("You cannot leave General Chat", 'warning');
+        return;
+      }
+      
+      const index = this.joinedCommunities.indexOf(communityId);
+      if (index > -1) {
+        this.joinedCommunities.splice(index, 1);
+        this.saveJoinedCommunities();
+        this.showToast?.(`You've left ${this.getCommunityName(communityId)}`, 'info');
+        
+        if (this.channels[0] === communityId) {
+          this.selectCommunity('general', 'General Chat');
+        }
+      }
+    },
+    
+    saveJoinedCommunities() {
+      try {
+        localStorage.setItem("designftw-joined-communities", JSON.stringify(this.joinedCommunities));
+      } catch (e) {
+        console.error("Failed to save joined communities", e);
+      }
+    },
+    
+    loadJoinedCommunities() {
+      try {
+        const saved = localStorage.getItem("designftw-joined-communities");
+        if (saved) {
+          this.joinedCommunities = JSON.parse(saved);
+          if (!this.joinedCommunities.includes('general')) {
+            this.joinedCommunities.push('general');
+            this.saveJoinedCommunities();
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load joined communities", e);
+        this.joinedCommunities = ['general'];
+      }
+    },
+
+    toggleAvailableCommunities() {
+      this.availableCommunitiesExpanded = !this.availableCommunitiesExpanded;
     }
   },
 
   mounted() {
-    this.loadStoredTags();
-    
-    try {
-      const savedCommunities = localStorage.getItem("designftw-communities");
-      if (savedCommunities) {
-        this.communities = JSON.parse(savedCommunities);
-      }
-    } catch (e) {
-      console.error("Failed to load communities", e);
+    if (typeof this.toast === 'undefined') {
+      this.toast = {
+        show: false,
+        message: '',
+        type: 'info',
+        icon: '',
+        timeout: null
+      };
     }
     
-    if (this.communities.length) {
-      this.selectCommunity(this.communities[0].id, this.communities[0].name);
+    this.loadStoredTags();
+    this.loadCommunities();
+    this.loadJoinedCommunities();
+    
+    if (this.$graffitiSession.value) {
+      this.ensureProfile(this.$graffitiSession.value).catch(err => {
+        console.error("Error loading profile:", err);
+      });
     }
     
     this.$watch(
-      () => this.$graffitiSession.value,
-      async (newSession) => {
-        if (newSession) {
-          await this.ensureProfile(newSession);
+      '$graffitiSession',
+      async (newValue) => {
+        if (newValue) {
+          try {
+            const hasProfile = await this.loadProfile();
+            if (!hasProfile) {
+              this.showProfileForm();
+            }
+          } catch (error) {
+            console.error("Error in graffitiSession watcher:", error);
+          }
         }
-      },
-      { immediate: true }
+      }
+    );
+    
+    if (!this.channels.length && this.communities.length) {
+      this.selectCommunity(this.communities[0].id, this.communities[0].name);
+    }
+    
+    if (!this.joinedCommunities.includes('general')) {
+      this.joinedCommunities.push('general');
+      this.saveJoinedCommunities();
+    }
+    
+    this.$watch(
+      () => this.$route?.query?.channel,
+      (newChannel) => {
+        if (newChannel) {
+          const community = this.communities.find(c => c.id === newChannel);
+          if (community) {
+            this.selectCommunity(community.id, community.name);
+          }
+        }
+      }
     );
   }
 });
@@ -606,3 +774,13 @@ const app = createApp({
 app
   .use(GraffitiPlugin, { graffiti: new GraffitiRemote() })
   .mount("#app");
+
+window.addEventListener('unhandledrejection', event => {
+  console.error('Unhandled Promise Rejection:', event.reason);
+  if (app && app._instance && app._instance.exposed) {
+    const vm = app._instance.exposed;
+    if (vm.showToast) {
+      vm.showToast('An error occurred. Please try again.', 'error');
+    }
+  }
+});

@@ -158,6 +158,14 @@
     border-radius: 8px;
     transition: all 0.2s ease;
     animation: fade-in 0.3s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .communities-list li .community-info {
+    flex: 1;
+    overflow: hidden;
   }
   
   .communities-list li.selected,
@@ -303,7 +311,6 @@
     color: white;
   }
   
-  /* Chat area */
   .chat-area {
     flex: 1;
     display: flex;
@@ -383,7 +390,6 @@
     margin-top: 0;
   }
   
-  /* Chat input */
   .chat-input {
     padding: 12px;
     background: var(--bg-dark);
@@ -436,7 +442,6 @@
     cursor: not-allowed;
   }
   
-  /* Messages */
   .message {
     position: relative;
     max-width: 65%;
@@ -513,7 +518,6 @@
     padding-left: 4px;
   }
   
-  /* Message actions */
   .message-actions {
     position: absolute;
     display: flex;
@@ -699,7 +703,6 @@
     font-style: italic;
   }
   
-  /* Animations */
   @keyframes fade-in {
     from { opacity: 0; transform: translateY(5px); }
     to { opacity: 1; transform: translateY(0); }
@@ -779,7 +782,6 @@
     }
   }
   
-  /* Toast Notifications */
   .toast-container {
     position: fixed;
     top: 20px;
@@ -854,7 +856,6 @@
     }
   }
   
-  /* Message tag indicators */
   .message-tag-badge {
     display: inline-flex;
     align-items: center;
@@ -922,7 +923,6 @@
     left: 0;
   }
   
-  /* Message tag indicators */
   .tag-indicator {
     display: inline-flex;
     align-items: center;
@@ -1048,7 +1048,126 @@
     color: #ff4444;
   }
   
-  /* Update message bubble to handle tags */
   .message .bubble {
     position: relative;
+  }
+  
+  .available-title {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    display: inline-block;
+  }
+  
+  .available-communities-section {
+    margin-top: 10px;
+  }
+  
+  .available-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    padding: 0 10px;
+    user-select: none;
+  }
+  
+  .available-header:hover {
+    background-color: rgba(0, 0, 0, 0.03);
+    border-radius: 6px;
+  }
+  
+  .available-count {
+    font-size: 0.8rem;
+    color: #888;
+    font-weight: normal;
+    margin-left: 5px;
+  }
+  
+  .dropdown-icon {
+    font-size: 0.8rem;
+    color: #888;
+    transition: transform 0.3s ease;
+  }
+  
+  .dropdown-icon.expanded {
+    transform: rotate(180deg);
+  }
+  
+  .no-communities {
+    text-align: center;
+    color: #888;
+    padding: 10px;
+    font-style: italic;
+    font-size: 0.9rem;
+  }
+  
+  .slide-enter-active, .slide-leave-active {
+    transition: all 0.3s ease;
+    max-height: 500px;
+    overflow: hidden;
+  }
+  
+  .slide-enter-from, .slide-leave-to {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+  }
+  
+  .available-communities li {
+    opacity: 0.9;
+  }
+  
+  .community-actions {
+    display: flex;
+    gap: 5px;
+  }
+  
+  .join-btn, .leave-btn, .delete-community-btn {
+    padding: 4px 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    margin-left: 8px;
+    opacity: 0.7;
+  }
+  
+  .communities-list li:hover .join-btn,
+  .communities-list li:hover .leave-btn,
+  .communities-list li:hover .delete-community-btn {
+    opacity: 1;
+  }
+  
+  .join-btn {
+    background-color: var(--success);
+    color: white;
+  }
+  
+  .leave-btn {
+    background-color: #f1f1f1;
+    color: #555;
+  }
+  
+  .delete-community-btn {
+    background-color: var(--error);
+    color: white;
+  }
+  
+  .join-btn:hover {
+    background-color: #28a745;
+    transform: scale(1.05);
+  }
+  
+  .leave-btn:hover {
+    background-color: var(--error);
+    color: white;
+    transform: scale(1.05);
+  }
+  
+  .delete-community-btn:hover {
+    background-color: #d9342c;
+    transform: scale(1.05);
   }
